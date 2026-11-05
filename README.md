@@ -139,8 +139,11 @@ They don't check version numbers.
 
 Most classes also have a control test, which must pass on both branches: a logged-in user can still
 read reports, public pages stay public, and JSON Patch can still change normal fields. These show the
-fix didn't work by simply breaking the app. `./demo.sh prove` reports a failure without a
-`VULNERABLE` message as a broken test rather than as a vulnerability.
+fix didn't work by simply breaking the app.
+
+A test only reports `VULNERABLE` when the attack actually succeeds, such as when the protected content
+comes back. `./demo.sh prove` shows any other failure as `TEST BROKEN`, rather than as a vulnerability.
+If you see that, check the report in `vulnerable-app/target/surefire-reports`.
 
 ## The recipes
 

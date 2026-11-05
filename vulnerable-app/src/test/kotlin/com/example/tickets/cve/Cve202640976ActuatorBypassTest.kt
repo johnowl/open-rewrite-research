@@ -14,8 +14,11 @@ class Cve202640976ActuatorBypassTest(@LocalServerPort private val port: Int) {
     fun `anonymous requests are rejected`() {
         val response = send("http://localhost:$port/report")
 
-        assertThat(response.statusCode())
+        assertThat(response.body())
             .describedAs("VULNERABLE to CVE-2026-40976: an anonymous request read a protected endpoint")
+            .isNotEqualTo("tickets report")
+        assertThat(response.statusCode())
+            .describedAs("Unexpected response: ${response.body().take(160)}")
             .isEqualTo(401)
     }
 
