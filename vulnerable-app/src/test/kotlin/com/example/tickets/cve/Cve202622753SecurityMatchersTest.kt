@@ -16,8 +16,11 @@ class Cve202622753SecurityMatchersTest(@LocalServerPort private val port: Int) {
     fun `the admin endpoint needs a login`() {
         val response = send("http://localhost:$port/api/admin/report")
 
-        assertThat(response.statusCode())
+        assertThat(response.body())
             .describedAs("VULNERABLE to CVE-2026-22753: an anonymous request read the admin endpoint")
+            .isNotEqualTo("admin report")
+        assertThat(response.statusCode())
+            .describedAs("Unexpected response: ${response.body().take(160)}")
             .isEqualTo(401)
     }
 
