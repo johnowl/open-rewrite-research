@@ -1,7 +1,7 @@
 # OpenRewrite security research
 
-A demo of fixing real Spring vulnerabilities with OpenRewrite recipes, using JUnit tests to prove each
-issue is there before the fix and gone after it.
+A demo of fixing real Spring vulnerabilities with one OpenRewrite YAML recipe per CVE, using JUnit
+tests to prove each issue is there before the fix and gone after it.
 
 > [!WARNING]
 > `vulnerable-app` is **deliberately vulnerable** and uses throwaway credentials. Run it locally for
@@ -10,20 +10,21 @@ issue is there before the fix and gone after it.
 | Branch | State |
 |---|---|
 | [`main`](../../tree/main) | Vulnerable: Spring Boot 4.0.3 and Spring AI 2.0.0 |
-| [`fixed`](../../tree/fixed) | `main` plus exactly what the recipes changed ([see the diff](../../compare/main...fixed)) |
+| [`fixed`](../../tree/fixed) | `main` plus exactly what the six recipes changed ([see the diff](../../compare/main...fixed)) |
 
 ## Run the demo
 
 You need JDK 21 and Maven. If your default JDK is a different version, set `JAVA_HOME`.
 
 ```sh
-./demo.sh prove   # run the tests and show which CVEs are present
-./demo.sh fix     # apply the recipes to vulnerable-app
-./demo.sh prove   # run the same tests again
-./demo.sh reset   # undo the recipes' changes, so you can run the demo again
+./demo.sh prove                  # run the tests and show which CVEs are present
+./demo.sh fix CVE-2026-47851     # apply one CVE's recipe
+./demo.sh fix                    # or apply all six, in ascending CVE order
+./demo.sh prove                  # run the same tests again
+./demo.sh reset                  # undo the recipes' changes, so you can run the demo again
 ```
 
-Before the fix:
+Before any fix:
 
 ```text
 Spring Boot 4.0.3
@@ -35,10 +36,10 @@ Spring Boot 4.0.3
   CVE-2026-47851   VULNERABLE
 ```
 
-After the fix:
+After `./demo.sh fix`:
 
 ```text
-Spring Boot 4.0.9
+Spring Boot 4.0.6
   CVE-2026-22732   not vulnerable
   CVE-2026-22753   not vulnerable
   CVE-2026-40976   not vulnerable
@@ -143,29 +144,53 @@ fix didn't work by simply breaking the app. `./demo.sh prove` reports a failure 
 
 ## The recipes
 
-[`vulnerable-app/rewrite.yml`](vulnerable-app/rewrite.yml) runs four recipes:
+Each CVE has its own recipe in [`vulnerable-app/recipes`](vulnerable-app/recipes). They use OpenRewrite's
+Maven recipes from `rewrite-maven` (Apache 2.0), which edit `pom.xml` directly. The plugin already
+includes them, so there's nothing else to download.
 
-| Recipe | License | Result |
+This table shows what each recipe fixes when applied alone to `main`:
+
+| Recipe | Change to `pom.xml` | CVEs fixed |
 |---|---|---|
-| `org.openrewrite.java.spring.boot4.UpgradeSpringBoot_4_0` | Moderne Source Available | Boot 4.0.3 to 4.0.9, fixing all but CVE-2026-47851 |
-| `com.example.rewrite.UpdateParentPomDependencyVersion` | This repository | Spring AI 2.0.0 to 2.0.1, fixing CVE-2026-47851 |
-| `com.example.rewrite.RemoveUnusedKotlinImports` | This repository | Removes an unused import |
-| `com.example.rewrite.AddSecurityTestSuite` | This repository | Generates `{basepackage}.security.SecurityTests` |
+| `CVE-2026-22732.yml` | `spring-security.version` = 7.0.4 | 22732 |
+| `CVE-2026-22753.yml` | `spring-security.version` = 7.0.5 | 22732, 22753 |
+| `CVE-2026-40976.yml` | Spring Boot parent = 4.0.6 | 22732, 22753, 40976 |
+| `CVE-2026-41707.yml` | `spring-security.version` = 7.0.7 | 22732, 22753, 41707 |
+| `CVE-2026-47849.yml` | `spring-data-bom.version` = 2025.1.7 | 47849 |
+| `CVE-2026-47851.yml` | `spring-ai.version` = 2.0.1 | 47851 |
 
-The first recipe comes from `rewrite-spring`, which `demo.sh` downloads when it runs; this repository
-doesn't contain it. Its license allows use on your own code, but not selling it or offering it as a
-service.
+The overlaps are expected: each Spring Security fix includes the earlier ones, and Boot 4.0.6 brings
+Security 7.0.5. To apply one yourself:
 
-[`rewrite-recipes`](rewrite-recipes) holds our recipes and their tests, written in Kotlin against the
-Apache 2.0 `rewrite-kotlin` and `rewrite-maven` modules. Its `dsl` package has the same recipes written
-with OpenRewrite's Kotlin DSL. The demo doesn't use those, because DSL recipes can't take options from
-`rewrite.yml`.
+```sh
+cd vulnerable-app
+mvn org.openrewrite.maven:rewrite-maven-plugin:6.46.1:run \
+  -Drewrite.configLocation=recipes/CVE-2026-47851.yml \
+  -Drewrite.activeRecipes=com.example.tickets.FixCve202647851
+```
+
+> [!WARNING]
+> **Order matters.** `ChangePropertyValue` writes the version it's given, even if that's a downgrade.
+> Applying `CVE-2026-41707.yml` and then `CVE-2026-22732.yml` sets Spring Security back to 7.0.4 and
+> brings CVE-2026-41707 back. `./demo.sh fix` avoids this by applying them in ascending order.
+
+### Why not one big upgrade?
+
+`org.openrewrite.java.spring.boot4.UpgradeSpringBoot_4_0` (Moderne Source Available, from
+`rewrite-spring`) moves Boot from 4.0.3 to 4.0.9 and fixes all of these except CVE-2026-47851. For a
+real project, that's simpler and leaves no version overrides behind. It just can't show each CVE being
+fixed separately. The more specific `UpgradeSpringSecurity_7_0` and `UpgradeSpringData_4_0` recipes
+made no changes to this app.
+
+None of the 18 Moderne Source Available recipe modules we searched has a recipe for Spring AI.
 
 ## Limits of this demo
 
-- **Upgrades only:** all six fixes are version upgrades. The recipes don't change vulnerable code.
+- **Upgrades only:** all six fixes are version changes. The recipes don't change vulnerable code.
+- **Version overrides:** the Security and Data recipes pin versions over Boot's defaults. Remove the
+  overrides when you next upgrade Boot, or they'll hold those libraries back.
 - **Not every issue is covered:** this repository only includes CVEs we could reproduce with a test.
   For example, it leaves out CVE-2026-53914, an unsafe deserialization issue in the Kotlin Gradle build
   cache, because this app builds with Maven.
-- **Versions are pinned:** the recipe versions in `demo.sh` come from Maven Central, and OpenRewrite's
+- **Versions are pinned:** the plugin version in `demo.sh` comes from Maven Central, and OpenRewrite's
   docs say recipes are moving to the Code Genome Project, so newer versions may exist there.
