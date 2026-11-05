@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<groupId>com.example</groupId>
+	<artifactId>rewrite-recipes</artifactId>
+	<version>0.1.0-SNAPSHOT</version>
+	<name>rewrite-recipes</name>
+	<description>OpenRewrite recipes for Kotlin projects</description>
+
+	<properties>
+		<java.version>21</java.version>
+		<kotlin.version>2.4.10</kotlin.version>
+		<rewrite.version>8.90.4</rewrite.version>
+		<junit.version>5.13.4</junit.version>
+		<assertj.version>3.27.6</assertj.version>
+		<maven.compiler.release>${java.version}</maven.compiler.release>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+	</properties>
+
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>org.openrewrite</groupId>
+				<artifactId>rewrite-bom</artifactId>
+				<version>${rewrite.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+			<dependency>
+				<groupId>org.junit</groupId>
+				<artifactId>junit-bom</artifactId>
+				<version>${junit.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
+
+	<dependencies>
+		<!-- Provided by rewrite-maven-plugin at recipe run time. -->
+		<dependency>
+			<groupId>org.openrewrite</groupId>
+			<artifactId>rewrite-kotlin</artifactId>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.openrewrite</groupId>
+			<artifactId>rewrite-maven</artifactId>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.jetbrains.kotlin</groupId>
+			<artifactId>kotlin-stdlib</artifactId>
+			<version>${kotlin.version}</version>
+			<scope>provided</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>org.openrewrite</groupId>
+			<artifactId>rewrite-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.assertj</groupId>
+			<artifactId>assertj-core</artifactId>
+			<version>${assertj.version}</version>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<sourceDirectory>${project.basedir}/src/main/kotlin</sourceDirectory>
+		<testSourceDirectory>${project.basedir}/src/test/kotlin</testSourceDirectory>
+		<plugins>
+			<plugin>
+				<groupId>org.jetbrains.kotlin</groupId>
+				<artifactId>kotlin-maven-plugin</artifactId>
+				<version>${kotlin.version}</version>
+				<configuration>
+					<jvmTarget>${java.version}</jvmTarget>
+					<args>
+						<arg>-java-parameters</arg>
+						<!-- Enables the recipe DSL: its K2 compiler plugin ships inside rewrite-kotlin. -->
+						<arg>-Xplugin=${settings.localRepository}/org/openrewrite/rewrite-kotlin/${rewrite.version}/rewrite-kotlin-${rewrite.version}.jar</arg>
+					</args>
+				</configuration>
+				<executions>
+					<execution>
+						<id>compile</id>
+						<goals><goal>compile</goal></goals>
+					</execution>
+					<execution>
+						<id>test-compile</id>
+						<goals><goal>test-compile</goal></goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<version>3.5.4</version>
+			</plugin>
+		</plugins>
+	</build>
+</project>

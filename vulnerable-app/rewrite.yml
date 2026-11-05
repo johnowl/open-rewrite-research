@@ -1,0 +1,15 @@
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: com.example.tickets.FixVulnerabilities
+displayName: Fix the demo app's vulnerabilities
+description: Upgrades Spring Boot and Spring AI to fixed versions, then cleans up imports and adds a security test suite.
+recipeList:
+  # Moderne Source Available license, from rewrite-spring. Fixes all but CVE-2026-47851.
+  - org.openrewrite.java.spring.boot4.UpgradeSpringBoot_4_0
+  # Our own recipes, from ../rewrite-recipes.
+  - com.example.rewrite.UpdateParentPomDependencyVersion:
+      groupId: org.springframework.ai
+      artifactId: spring-ai-bom
+      newVersion: 2.0.1
+  - com.example.rewrite.RemoveUnusedKotlinImports
+  - com.example.rewrite.AddSecurityTestSuite
