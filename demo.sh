@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
-# Usage: ./demo.sh prove | fix | reset
+# Usage: ./demo.sh prove | fix [CVE-YYYY-NNNNN] | reset
 set -euo pipefail
 
 cd "$(dirname "$0")"
 
 MVN_FLAGS=(-B -q -Dkotlin.compiler.daemon=false)
 PLUGIN=org.openrewrite.maven:rewrite-maven-plugin:6.46.1
-RECIPE_JARS=com.example:rewrite-recipes:0.1.0-SNAPSHOT,org.openrewrite.recipe:rewrite-spring:6.37.1
 
 prove() {
     (cd vulnerable-app && mvn "${MVN_FLAGS[@]}" clean test -Dmaven.test.failure.ignore=true) >/tmp/demo-prove.log 2>&1 || {
@@ -31,11 +30,24 @@ prove() {
 }
 
 fix() {
-    (cd rewrite-recipes && mvn "${MVN_FLAGS[@]}" install -DskipTests)
-    (cd vulnerable-app && mvn -B -Dkotlin.compiler.daemon=false "$PLUGIN:run" \
-        -Drewrite.activeRecipes=com.example.tickets.FixVulnerabilities \
-        -Drewrite.recipeArtifactCoordinates="$RECIPE_JARS") | grep -E 'Changes have been made|Generated new file|^\[WARNING\] +[a-z]+\.|BUILD' || true
-    git --no-pager diff --stat -- vulnerable-app
+    # Without an argument, the glob applies every recipe in ascending CVE order.
+    local recipes=(vulnerable-app/recipes/*.yml)
+    [[ -n "${1:-}" ]] && recipes=("vulnerable-app/recipes/$1.yml")
+    for recipe in "${recipes[@]}"; do
+        [[ -f "$recipe" ]] || { echo "No recipe at $recipe" >&2; exit 2; }
+        local cve name
+        cve=$(basename "$recipe" .yml)
+        name=$(sed -n 's/^name: //p' "$recipe")
+        echo "Applying $cve"
+        (cd vulnerable-app && mvn -B -Dkotlin.compiler.daemon=false "$PLUGIN:run" \
+            -Drewrite.configLocation="recipes/$cve.yml" \
+            -Drewrite.activeRecipes="$name") >/tmp/demo-fix.log 2>&1 || {
+            tail -20 /tmp/demo-fix.log
+            exit 1
+        }
+        grep -E 'Changes have been made' /tmp/demo-fix.log || echo "  no changes needed"
+    done
+    git --no-pager diff -- vulnerable-app
 }
 
 reset() {
@@ -45,7 +57,7 @@ reset() {
 
 case "${1:-}" in
     prove) prove ;;
-    fix) fix ;;
+    fix) fix "${2:-}" ;;
     reset) reset ;;
-    *) echo "Usage: $0 prove | fix | reset" >&2; exit 2 ;;
+    *) echo "Usage: $0 prove | fix [CVE-YYYY-NNNNN] | reset" >&2; exit 2 ;;
 esac
