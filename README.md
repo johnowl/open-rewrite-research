@@ -197,3 +197,8 @@ None of the 18 Moderne Source Available recipe modules we searched has a recipe 
   cache, because this app builds with Maven.
 - **Versions are pinned:** the plugin version in `demo.sh` comes from Maven Central, and OpenRewrite's
   docs say recipes are moving to the Code Genome Project, so newer versions may exist there.
+
+## License
+
+[Apache 2.0](LICENSE). This covers the code in this repository, not the OpenRewrite recipes and Spring
+libraries it downloads, which have their own licenses.
